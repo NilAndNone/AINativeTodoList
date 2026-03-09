@@ -1,0 +1,55 @@
+schema_version = 1
+
+[paths]
+task_store = "data/tasks.csv"
+today_file = "today.md"
+daily_dir = "daily"
+reports_dir = "reports"
+projects_dir = "projects"
+
+[storage]
+format = "csv"
+
+[workflow]
+require_confirm_before_write = true
+today_mode = "primary-workbench"
+
+[git]
+auto_commit_on_close_day = true
+auto_push_on_close_day = true
+commit_message = "chore(todo): close day {date}"
+
+[defaults.new_task]
+project = "MISC"
+priority = "P2"
+status = "todo"
+
+[projects.UTC]
+name = "单测客户端"
+file = "unit-test-client.md"
+focus = "客户端工程实现、稳定性、性能、监控与离线流程建设。"
+
+[projects.HYP]
+name = "半年工作安排"
+file = "half-year-plan.md"
+focus = "未来半年的工作主线、阶段性交付节奏与整体规划口径。"
+
+[projects.TAR]
+name = "团队成员工作安排"
+file = "team-arrangement.md"
+focus = "个人工作安排与团队成员承接方向的阶段性拆解。"
+
+[projects.HYE]
+name = "混元单测评测"
+file = "hunyuan-evaluation.md"
+focus = "模型评测事项记录、整理与边界维护。"
+
+[projects.AGE]
+name = "单测评测"
+file = "agent-evaluation.md"
+focus = "单元测试代码生成 agent 的评测框架与阶段性输出。"
+
+[projects.MISC]
+name = "杂项"
+file = "misc.md"
+focus = "临时支持、会议、沟通和跨项目事项。"
