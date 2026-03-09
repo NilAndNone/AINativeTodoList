@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 from .config import ConfigError, load_data_repo_config, load_runtime_config
+from .mcp_tool_contracts import READ_TOOLS
 
 
 def parse_args() -> argparse.Namespace:
@@ -17,6 +18,10 @@ def parse_args() -> argparse.Namespace:
 def build_report(*, config_path: Path | None, code_repo: Path) -> dict[str, object]:
     runtime_config = load_runtime_config(config_path=config_path, code_repo=code_repo)
     data_config = load_data_repo_config(runtime_config.data_repo)
+    storage = data_config.raw.get("storage", {})
+    storage_format = "csv"
+    if isinstance(storage, dict):
+        storage_format = str(storage.get("format", "csv"))
     return {
         "ok": True,
         "code_repo": str(runtime_config.code_repo),
@@ -25,9 +30,12 @@ def build_report(*, config_path: Path | None, code_repo: Path) -> dict[str, obje
         "profile": runtime_config.profile,
         "data_config_path": str(data_config.path),
         "schema_version": data_config.schema_version,
+        "storage_format": storage_format,
         "paths": data_config.paths,
         "resolved_paths": data_config.resolved_paths,
         "projects": sorted(data_config.projects.keys()),
+        "supported_read_tools": list(READ_TOOLS),
+        "mcp_server_module": "ainative_todo_service.mcp_server",
     }
 
 
