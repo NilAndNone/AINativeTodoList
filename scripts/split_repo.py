@@ -42,6 +42,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target", type=Path, required=True, help="Target data repository root")
     parser.add_argument("--force", action="store_true", help="Overwrite existing target files")
     parser.add_argument(
+        "--remove-source-data",
+        action="store_true",
+        help="Delete migrated data artifacts from the source repo after a successful copy.",
+    )
+    parser.add_argument(
         "--runtime-config-out",
         type=Path,
         default=None,
@@ -158,6 +163,16 @@ def copy_entry(source_root: Path, target_root: Path, name: str, force: bool) -> 
         shutil.copy2(source, target)
 
 
+def remove_source_entry(source_root: Path, name: str) -> None:
+    source = source_root / name
+    if not source.exists():
+        return
+    if source.is_dir():
+        shutil.rmtree(source)
+    else:
+        source.unlink()
+
+
 def write_default_files(
     target_root: Path,
     *,
@@ -193,6 +208,8 @@ def main() -> int:
     args = parse_args()
     source_root = args.source.resolve()
     target_root = args.target.resolve()
+    if source_root == target_root:
+        raise ValueError("--source and --target must be different directories")
     target_root.mkdir(parents=True, exist_ok=True)
 
     for name in COPY_TARGETS:
@@ -207,10 +224,15 @@ def main() -> int:
     )
     if args.runtime_config_out is not None:
         write_runtime_config_file(args.runtime_config_out.resolve(), target_root, args.force)
+    if args.remove_source_data:
+        for name in COPY_TARGETS:
+            remove_source_entry(source_root, name)
 
     print(f"Data repository initialized at: {target_root}")
     if args.runtime_config_out is not None:
         print(f"Runtime config written to: {args.runtime_config_out.resolve()}")
+    if args.remove_source_data:
+        print(f"Source data artifacts removed from: {source_root}")
     return 0
 
 

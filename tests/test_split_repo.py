@@ -55,6 +55,8 @@ class SplitRepoTests(unittest.TestCase):
         self.assertTrue((self.target / "data" / "tasks.csv").exists())
         self.assertTrue((self.target / "today.md").exists())
         self.assertTrue((self.target / "reports" / "templates" / "weekly-template.md").exists())
+        self.assertTrue((self.source / "data" / "tasks.csv").exists())
+        self.assertTrue((self.source / "today.md").exists())
         todo_config = (self.target / "todo.config.toml").read_text(encoding="utf-8")
         self.assertIn('task_store = "data/tasks.csv"', todo_config)
         self.assertIn("[projects.UTC]", todo_config)
@@ -102,6 +104,24 @@ class SplitRepoTests(unittest.TestCase):
         todo_config = (self.target / "todo.config.toml").read_text(encoding="utf-8")
         self.assertIn("auto_commit_on_close_day = true", todo_config)
         self.assertIn("auto_push_on_close_day = true", todo_config)
+
+    def test_split_repo_can_remove_source_data_after_successful_migration(self) -> None:
+        runtime_config = self.root / "runtime-config.toml"
+        result = self.run_split(
+            "--runtime-config-out",
+            str(runtime_config),
+            "--remove-source-data",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.target / "data" / "tasks.csv").exists())
+        self.assertTrue((self.target / "today.md").exists())
+        self.assertTrue(runtime_config.exists())
+        self.assertFalse((self.source / "data").exists())
+        self.assertFalse((self.source / "today.md").exists())
+        self.assertFalse((self.source / "reports").exists())
+        self.assertFalse((self.source / "projects").exists())
+        self.assertIn("Source data artifacts removed from", result.stdout)
 
 
 if __name__ == "__main__":

@@ -16,6 +16,17 @@ python3 scripts/split_repo.py \
   --runtime-config-out ~/.config/ainative-todo/config.toml
 ```
 
+如果迁移完后要让当前代码仓只剩代码：
+
+```bash
+python3 scripts/split_repo.py \
+  --target /ABS/PATH/TO/AINative_todo_data \
+  --runtime-config-out ~/.config/ainative-todo/config.toml \
+  --remove-source-data
+```
+
+该命令会在复制成功后删除源仓的 `data/`、`today.md`、`daily/`、`reports/`、`projects/`。
+
 如果你已经确认 data repo 应该由 `close_day` 自动提交和推送：
 
 ```bash

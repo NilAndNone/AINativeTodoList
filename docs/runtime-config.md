@@ -48,6 +48,23 @@ python3 scripts/split_repo.py \
   --runtime-config-out ~/.config/ainative-todo/config.toml
 ```
 
+如果你确认迁移完成后要把当前代码仓清成“只剩代码”，可以显式删除源仓里的数据目录：
+
+```bash
+python3 scripts/split_repo.py \
+  --target /ABS/PATH/TO/AINative_todo_data \
+  --runtime-config-out ~/.config/ainative-todo/config.toml \
+  --remove-source-data
+```
+
+这个开关会在复制和配置写入成功后，删除源仓顶层的：
+
+- `data/`
+- `today.md`
+- `daily/`
+- `reports/`
+- `projects/`
+
 如需覆盖目标目录已有文件：
 
 ```bash
