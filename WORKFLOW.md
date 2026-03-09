@@ -1,63 +1,136 @@
 # 工作流
 
+## 核心原则
+
+- `data/tasks.csv` 仍然是唯一长期事实源
+- `today.md` 仍然是当天驾驶舱，但 agent 不应绕过 service 直接改文件
+- 所有写操作都走：`todo_plan_write -> 看 diff -> 你确认 -> todo_apply`
+- 你主要负责说自然语言和确认 diff，不负责手搓 CSV
+
 ## 事实源
 
 | 路径 | 角色 |
 | --- | --- |
 | `data/tasks.csv` | 唯一长期任务状态存储 |
-| `today.md` | 当天执行文件，不做长期存档 |
-| `daily/YYYY-MM/WXX/YYYY-MM-DD.md` | 由 today.md 归档生成 |
+| `today.md` | 当天执行文件，也是 agent 的工作台视图 |
+| `daily/YYYY-MM/WXX/YYYY-MM-DD.md` | 由 `today.md` 归档生成 |
 | `projects/*.md` | 按项目维度的生成文件 |
+| `reports/` / `daily/*summary.md` | 周 / 月 / 季 / 半年总结输出 |
 
-## 日常操作流程
+## 你平时怎么用
 
-### 开工触发规则（手动决定）
+### 开工
 
-- 是否生成当日 `today.md`，**由你明确触发**（例如说“开工”“生成 today”）。
-- agent **不按星期几自动判断**是否开工（周末、工作日、请假日都不自动生成）。
-- 没有触发开工时，当天可不生成 `today.md`，也不产生 `daily/YYYY-MM/WXX/YYYY-MM-DD.md`。
-- 复工当天再生成 `today.md` 即可；如需说明空档，可在 `## 备注` 里补充请假/休息原因。
+你说：
 
-### 早上开工
+```text
+开工
+```
 
-确认 `today.md` 已归档或不存在后，让 agent 生成新的 `today.md`。agent 会汇报：
+预期行为：
 
-- 今日必须完成项（P0 / doing / 今天到期或已逾期）
-- 阻塞任务
-- 逾期任务
+1. agent 先读 `todo_doctor` 和 `todo_get_overview`
+2. 如果 `today.md` 还没归档，先提醒你选择：
+   - 先收工
+   - 或确认覆盖生成新的 `today.md`
+3. agent 调 `todo_plan_write(action="start_day")`
+4. agent 展示 `today.md` preview diff
+5. 你确认后，agent 才会 `todo_apply`
+6. agent 再总结今日必须项 / blocked / overdue
 
-### 白天执行
+### 白天更新
 
-口头告知 agent 进展，agent 更新 `today.md`：
+你可以直接说自然语言，例如：
 
-| 你说的 | agent 更新的位置 |
-| --- | --- |
-| 任务有进展 | 对应行的 `状态` 和 `备注` |
-| 新增了临时任务 | `临时新增` 表格 |
-| 完成了某任务 | `实际完成` 表格 |
-| 任务没做完 | `未完成 & 原因` 表格 |
+```text
+把 UTC 那个性能优化任务改成 blocked，备注改成等依赖方接口。
+```
 
-### 收工归档
+```text
+把 AGE 那个阶段性计划标题改成阶段性计划 v2，DDL 改到周五。
+```
 
-告诉 agent "收工"，agent 会检查 `today.md` 并列出变更摘要。你确认后 agent 执行归档。
+```text
+新增一个 MISC 任务，明天下午前整理周会纪要。
+```
 
-- `doing` 任务可跨天延续，不强制收尾。
-- 归档后 `today.md` 重置为归档提示。
+预期行为：
+
+1. agent 先判断对应动作：
+   - `update_task`
+   - `add_task`
+   - `mark_done`
+   - `mark_blocked`
+   - `unblock_task`
+   - `change_priority`
+   - `change_due_date`
+   - `cancel_task`
+2. 缺字段时，agent 只追问缺的字段
+3. 候选不唯一时，agent 列出候选任务，不瞎猜
+4. 信息齐全后，agent 生成 preview diff
+5. 你确认后，agent 才 apply
 
 ### 周期总结
 
-需要周报 / 月报 / 季报 / 半年报时告诉 agent，agent 生成后会摘要关键信息。
+你说：
 
-## today.md 编辑规则
+```text
+生成本周周报。
+```
 
-对来自 `data/tasks.csv` 的已有任务，**只允许更新**：
+预期行为：
 
-- `状态`（todo / doing / blocked / done / cancelled）
-- `备注`
+1. agent 调 `todo_plan_write(action="generate_report")`
+2. agent 展示报告文件 preview diff
+3. 你确认后 agent apply
+4. agent 再摘要本周完成 / 风险 / 延期 / 下阶段关注点
 
-以下字段**不可修改**（收工归档时按 `data/tasks.csv` 校验）：
+### 收工
 
-- 标题、项目、优先级（P）、创建日期、DDL、产出
+你说：
+
+```text
+收工
+```
+
+预期行为：
+
+1. agent 读取 overview
+2. agent 调 `todo_plan_write(action="close_day")`
+3. agent 展示归档摘要和 unified diff
+4. 你确认后 agent apply
+5. `today.md` 归档，项目页按现有逻辑同步重建
+6. 若未来配置启用 data repo git 自动化，则只允许作用于 data repo
+
+## 通过 agent 可以修改什么
+
+对已有任务，service 层支持修改：
+
+- `title`
+- `project`
+- `priority`
+- `due_date`
+- `deliverable`
+- `status`
+- `notes`
+
+新增任务时，通常至少需要补齐：
+
+- `title`
+- `project`
+- `priority`
+- `deliverable`
+- `status`
+
+## 手动兜底编辑规则
+
+如果你临时手改 `today.md`，仍然遵守旧约束：
+
+- 对来自 `data/tasks.csv` 的已有任务，只手改 `状态` 和 `备注`
+- 不手改标题、项目、优先级、创建日期、DDL、产出
+
+如果你想改这些核心字段，优先直接告诉 agent，让它走 service 的 preview/apply 流程，同时更新
+`data/tasks.csv` 和 `today.md`。
 
 ## 数据契约速查
 

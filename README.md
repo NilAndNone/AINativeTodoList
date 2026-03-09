@@ -34,4 +34,16 @@ python3 scripts/todo_workflow.py generate-quarterly
 python3 scripts/todo_workflow.py generate-halfyear
 ```
 
-完整工作流见 [WORKFLOW.md](/Users/xiaohanlu/AAAAAINativeProject/AINativeTodoList/WORKFLOW.md)。
+## Agent / MCP
+
+- 人类工作流见 [WORKFLOW.md](/Users/xiaohanlu/AAAAAINativeProject/AINativeTodoList/WORKFLOW.md)
+- 独立人类版 workflow 见 [human-workflow.md](/Users/xiaohanlu/AAAAAINativeProject/AINativeTodoList/docs/human-workflow.md)
+- Agent SOP 见 [docs/agent-workflow.md](/Users/xiaohanlu/AAAAAINativeProject/AINativeTodoList/docs/agent-workflow.md)
+- Codex 显式 skill 位于 [SKILL.md](/Users/xiaohanlu/AAAAAINativeProject/AINativeTodoList/.agents/skills/todo-local-workflow/SKILL.md)
+- 本地 MCP server 入口：`python3 -m ainative_todo_service.mcp_server`
+
+本仓库当前约定是：
+
+- 读取优先使用 `todo_doctor`、`todo_get_overview`、`todo_get_today_markdown`、`todo_search_tasks`
+- 任何写入都必须先 `todo_plan_write`
+- 只有在用户明确确认后才能 `todo_apply`

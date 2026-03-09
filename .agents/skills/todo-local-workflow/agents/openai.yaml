@@ -1,0 +1,5 @@
+interface:
+  display_name: "Todo Local Workflow"
+  short_description: "通过本地 MCP 工具维护 today/task/report/project 工作流"
+policy:
+  allow_implicit_invocation: true

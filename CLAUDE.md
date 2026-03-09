@@ -31,11 +31,12 @@ python3 -m pytest tests/
 ## Architecture
 
 - **`data/tasks.csv`** — Single source of truth for all tasks. Fields: `id, title, project, priority, created_date, due_date, deliverable, status, notes`
-- **`today.md`** — Daily execution view, regenerated each morning, archived at end of day. Only `status` and `notes` fields may be modified here; other fields are immutable and validated against CSV on close-day.
+- **`today.md`** — Daily execution view and working cockpit. Agents should not edit it directly; they should use MCP plan/apply so `today.md` and CSV stay in sync.
 - **`daily/YYYY-MM/WXX/YYYY-MM-DD.md`** — Archived daily files + summary reports
 - **`projects/*.md`** — Auto-generated project pages (do not edit manually)
 - **`scripts/todo_workflow.py`** — All workflow logic in a single Python script (~970 lines). No external dependencies beyond stdlib.
-- **`skills/todo-workflow/`** — Claude Code skill with scene-based reference docs (morning/during-day/close-day/review)
+- **`.agents/skills/todo-local-workflow/`** — Primary Codex-discoverable skill for tool-first workflow
+- **`docs/agent-workflow.md`** — Agent SOP aligned with MCP contracts
 - **`reports/templates/`** — Report templates for weekly/monthly/quarterly/half-year
 
 ## Data Contracts
@@ -47,12 +48,20 @@ python3 -m pytest tests/
 
 ## Skills
 
-When the user mentions "开工", "收工", "任务更新", "生成报告", or wants to operate on today.md / tasks.csv, load `skills/todo-workflow/SKILL.md` and follow its routing instructions.
+When the user mentions "开工", "收工", "任务更新", "生成报告", or wants to operate on today/task/report/project workflow, load `.agents/skills/todo-local-workflow/SKILL.md`.
+
+Treat `.agents/skills/todo-local-workflow/SKILL.md` as the source of truth. The legacy `skills/todo-workflow/` directory remains only as a compatibility alias.
 
 ## Important Rules
 
+- Prefer MCP tools: `todo_doctor`, `todo_get_overview`, `todo_get_today_markdown`, `todo_search_tasks`, `todo_plan_write`, `todo_apply`
+- All writes must go through `todo_plan_write`
+- If the tool returns `needs_input`, ask only for `missing_fields`
+- If the tool returns `ambiguous`, show candidates and ask the user to choose
+- If the tool returns `ready_for_confirm`, show summary + diff and wait for explicit confirmation
+- Never call `todo_apply` before the user explicitly confirms
 - Never add fallback/safety-net measures — expose errors directly for the user to fix
 - Any operation that might conflict with user instructions must be surfaced for confirmation
 
 # currentDate
-Today's date is 2026-03-05.
+Today's date is 2026-03-09.
