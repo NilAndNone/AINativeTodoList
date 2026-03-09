@@ -111,7 +111,7 @@
 3. 展示归档摘要和 diff
 4. 你确认
 5. agent apply
-6. 如未来配置启用，只允许在 data repo 做 git 自动化
+6. 如配置启用，只允许在 data repo 做 git 自动化
 
 ## 手动兜底规则
 

@@ -8,7 +8,7 @@ from typing import Any, Callable
 
 import scripts.todo_workflow as workflow
 
-from .config import ConfigError, load_runtime_config
+from .config import ConfigError, load_data_repo_config, load_runtime_config
 from .contracts import CommandResult, PreviewResult
 from .mcp_tool_contracts import SUPPORTED_WRITE_ACTIONS
 from .operations import (
@@ -127,13 +127,20 @@ class WritePlanner:
             }
 
         self._pending.pop(operation_id, None)
-        return {
+        payload = {
             "ok": result.ok,
             "action": pending.action,
             "operation_id": operation_id,
             "applied_files": list(pending.files_changed),
             "post_summary": pending.summary,
+            "warnings": [],
         }
+        git_result = result.metadata.get("git")
+        if isinstance(git_result, dict):
+            payload["git"] = git_result
+            if not bool(git_result.get("ok", True)):
+                payload["warnings"] = [str(git_result.get("error", "git automation failed"))]
+        return payload
 
     def _plan_start_day(self, args: dict[str, Any]) -> dict[str, object]:
         runtime_config = load_runtime_config(config_path=self._config_path, code_repo=self._code_repo)
@@ -283,13 +290,24 @@ class WritePlanner:
 
     def _plan_close_day(self, args: dict[str, Any]) -> dict[str, object]:
         runtime_config = load_runtime_config(config_path=self._config_path, code_repo=self._code_repo)
+        data_config = load_data_repo_config(runtime_config.data_repo)
+        if data_config.git.auto_push_on_close_day and not data_config.git.auto_commit_on_close_day:
+            raise WriteActionError("Invalid git config: auto_push_on_close_day requires auto_commit_on_close_day=true.")
         date = self._optional_str(args.get("date"))
         preview = preview_close_day(code_repo=self._code_repo, data_repo=runtime_config.data_repo, date=date)
         summary = f"归档 {date or '今天'} 的 today.md，并同步 data/tasks.csv 与 projects/。"
+        warnings: list[str] = []
+        if data_config.git.auto_commit_on_close_day and data_config.git.auto_push_on_close_day:
+            warnings.append("确认 apply 后会只在 data repo 执行 git commit + push。")
+        elif data_config.git.auto_commit_on_close_day:
+            warnings.append("确认 apply 后会只在 data repo 执行 git commit。")
+        elif data_config.git.auto_push_on_close_day:
+            warnings.append("确认 apply 后会在 close_day 之后尝试 push 当前 data repo 分支。")
         return self._payload_from_preview(
             action="close_day",
             summary=summary,
             preview=preview,
+            warnings=warnings,
             apply_fn=lambda: apply_close_day(
                 code_repo=self._code_repo,
                 data_repo=runtime_config.data_repo,
@@ -372,6 +390,7 @@ class WritePlanner:
         action: str,
         summary: str,
         preview: PreviewResult,
+        warnings: list[str] | None = None,
         apply_fn: Callable[[], CommandResult],
     ) -> dict[str, object]:
         if not preview.ok:
@@ -394,7 +413,7 @@ class WritePlanner:
             "summary": summary,
             "files_changed": list(preview.changed_files),
             "diffs": [{"path": entry.path, "unified_diff": entry.unified_diff} for entry in preview.diffs],
-            "warnings": [],
+            "warnings": list(warnings or []),
         }
 
     def _resolve_task(self, action: str, selector: dict[str, Any], tasks: list[dict[str, str]]) -> dict[str, object]:

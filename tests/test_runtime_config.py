@@ -29,6 +29,11 @@ daily_dir = "daily"
 reports_dir = "reports"
 projects_dir = "projects"
 
+[git]
+auto_commit_on_close_day = true
+auto_push_on_close_day = false
+commit_message = "chore(todo): close day {date}"
+
 [projects.UTC]
 name = "单测客户端"
 file = "unit-test-client.md"
@@ -63,12 +68,16 @@ class RuntimeConfigTests(unittest.TestCase):
         self.assertEqual(data_config.schema_version, 1)
         self.assertEqual(data_config.resolve_path("task_store"), (self.data_repo / "data" / "tasks.csv").resolve())
         self.assertEqual(sorted(data_config.projects), ["UTC"])
+        self.assertTrue(data_config.git.auto_commit_on_close_day)
+        self.assertFalse(data_config.git.auto_push_on_close_day)
 
     def test_build_report_and_module_invocation(self) -> None:
         report = build_report(config_path=self.runtime_config_path, code_repo=REPO_ROOT)
         self.assertTrue(report["ok"])
         self.assertEqual(report["data_repo"], str(self.data_repo.resolve()))
         self.assertEqual(report["resolved_paths"]["today_file"], str((self.data_repo / "today.md").resolve()))
+        self.assertTrue(report["git"]["auto_commit_on_close_day"])
+        self.assertFalse(report["git"]["auto_push_on_close_day"])
 
         result = subprocess.run(
             [

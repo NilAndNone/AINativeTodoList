@@ -14,7 +14,65 @@ COPY_TARGETS = (
     "projects",
 )
 
-DEFAULT_TODO_CONFIG = """
+DEFAULT_COMMIT_MESSAGE = "chore(todo): close day {date}"
+DEFAULT_README = """# AINative Todo Data Repo
+
+This repository stores the user's task data and generated artifacts.
+
+## First Run
+
+1. Point the code repo runtime config at this directory.
+2. Run `python3 -m ainative_todo_service.doctor`.
+3. If you want close-day git automation, initialize this directory as a git repo and enable it in `todo.config.toml`.
+"""
+
+
+def repo_root_from(script_path: Path) -> Path:
+    return script_path.resolve().parents[1]
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Copy todo data artifacts into a separate data repository.")
+    parser.add_argument(
+        "--source",
+        type=Path,
+        default=repo_root_from(Path(__file__)),
+        help="Current combined repository root",
+    )
+    parser.add_argument("--target", type=Path, required=True, help="Target data repository root")
+    parser.add_argument("--force", action="store_true", help="Overwrite existing target files")
+    parser.add_argument(
+        "--runtime-config-out",
+        type=Path,
+        default=None,
+        help="Optional runtime config TOML to write for the code repository.",
+    )
+    parser.add_argument(
+        "--auto-commit-on-close-day",
+        action="store_true",
+        help="Enable close-day git commit in the generated todo.config.toml.",
+    )
+    parser.add_argument(
+        "--auto-push-on-close-day",
+        action="store_true",
+        help="Enable close-day git push in the generated todo.config.toml.",
+    )
+    parser.add_argument(
+        "--git-commit-message",
+        default=DEFAULT_COMMIT_MESSAGE,
+        help="Commit message template for close-day git automation.",
+    )
+    return parser.parse_args()
+
+
+def toml_string(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
+
+
+def build_default_todo_config(*, auto_commit: bool, auto_push: bool, commit_message: str) -> str:
+    return (
+        f"""
 schema_version = 1
 
 [paths]
@@ -32,9 +90,9 @@ require_confirm_before_write = true
 today_mode = "primary-workbench"
 
 [git]
-auto_commit_on_close_day = false
-auto_push_on_close_day = false
-commit_message = "chore(todo): close day {date}"
+auto_commit_on_close_day = {"true" if auto_commit else "false"}
+auto_push_on_close_day = {"true" if auto_push else "false"}
+commit_message = {toml_string(commit_message)}
 
 [defaults.new_task]
 project = "MISC"
@@ -70,29 +128,13 @@ focus = "单元测试代码生成 agent 的评测框架与阶段性输出。"
 name = "杂项"
 file = "misc.md"
 focus = "临时支持、会议、沟通和跨项目事项。"
-""".strip() + "\n"
-
-DEFAULT_README = """# AINative Todo Data Repo
-
-This repository stores the user's task data and generated artifacts.
-"""
-
-
-def repo_root_from(script_path: Path) -> Path:
-    return script_path.resolve().parents[1]
-
-
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Copy todo data artifacts into a separate data repository.")
-    parser.add_argument(
-        "--source",
-        type=Path,
-        default=repo_root_from(Path(__file__)),
-        help="Current combined repository root",
+""".strip()
+        + "\n"
     )
-    parser.add_argument("--target", type=Path, required=True, help="Target data repository root")
-    parser.add_argument("--force", action="store_true", help="Overwrite existing target files")
-    return parser.parse_args()
+
+
+def build_runtime_config(data_repo: Path) -> str:
+    return f'profile = "default"\ndata_repo = {toml_string(str(data_repo.resolve()))}\n'
 
 
 def copy_entry(source_root: Path, target_root: Path, name: str, force: bool) -> None:
@@ -116,14 +158,35 @@ def copy_entry(source_root: Path, target_root: Path, name: str, force: bool) -> 
         shutil.copy2(source, target)
 
 
-def write_default_files(target_root: Path, force: bool) -> None:
+def write_default_files(
+    target_root: Path,
+    *,
+    force: bool,
+    auto_commit_on_close_day: bool,
+    auto_push_on_close_day: bool,
+    git_commit_message: str,
+) -> None:
     todo_config = target_root / "todo.config.toml"
     if not todo_config.exists() or force:
-        todo_config.write_text(DEFAULT_TODO_CONFIG, encoding="utf-8")
+        todo_config.write_text(
+            build_default_todo_config(
+                auto_commit=auto_commit_on_close_day,
+                auto_push=auto_push_on_close_day,
+                commit_message=git_commit_message,
+            ),
+            encoding="utf-8",
+        )
 
     readme = target_root / "README.md"
     if not readme.exists() or force:
         readme.write_text(DEFAULT_README, encoding="utf-8")
+
+
+def write_runtime_config_file(runtime_config_out: Path, data_repo: Path, force: bool) -> None:
+    if runtime_config_out.exists() and not force:
+        raise FileExistsError(f"Target already exists: {runtime_config_out}")
+    runtime_config_out.parent.mkdir(parents=True, exist_ok=True)
+    runtime_config_out.write_text(build_runtime_config(data_repo), encoding="utf-8")
 
 
 def main() -> int:
@@ -135,9 +198,19 @@ def main() -> int:
     for name in COPY_TARGETS:
         copy_entry(source_root, target_root, name, force=args.force)
 
-    write_default_files(target_root, force=args.force)
+    write_default_files(
+        target_root,
+        force=args.force,
+        auto_commit_on_close_day=args.auto_commit_on_close_day,
+        auto_push_on_close_day=args.auto_push_on_close_day,
+        git_commit_message=args.git_commit_message,
+    )
+    if args.runtime_config_out is not None:
+        write_runtime_config_file(args.runtime_config_out.resolve(), target_root, args.force)
 
     print(f"Data repository initialized at: {target_root}")
+    if args.runtime_config_out is not None:
+        print(f"Runtime config written to: {args.runtime_config_out.resolve()}")
     return 0
 
 

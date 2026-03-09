@@ -43,13 +43,28 @@ data_repo = "/ABS/PATH/TO/AINative_todo_data"
 从当前单仓复制数据到独立数据仓：
 
 ```bash
-python3 scripts/split_repo.py --target /ABS/PATH/TO/AINative_todo_data
+python3 scripts/split_repo.py \
+  --target /ABS/PATH/TO/AINative_todo_data \
+  --runtime-config-out ~/.config/ainative-todo/config.toml
 ```
 
 如需覆盖目标目录已有文件：
 
 ```bash
-python3 scripts/split_repo.py --target /ABS/PATH/TO/AINative_todo_data --force
+python3 scripts/split_repo.py \
+  --target /ABS/PATH/TO/AINative_todo_data \
+  --runtime-config-out ~/.config/ainative-todo/config.toml \
+  --force
+```
+
+如需直接启用 `close_day` 自动 `git commit + push`：
+
+```bash
+python3 scripts/split_repo.py \
+  --target /ABS/PATH/TO/AINative_todo_data \
+  --runtime-config-out ~/.config/ainative-todo/config.toml \
+  --auto-commit-on-close-day \
+  --auto-push-on-close-day
 ```
 
 ## 诊断命令
@@ -67,6 +82,8 @@ python3 -m ainative_todo_service.doctor --config ~/.config/ainative-todo/config.
 - `runtime_config_path`
 - `data_config_path`
 - `resolved_paths`
+- `git`
+- `data_repo_is_git_repo`
 
 ## 旧 CLI 的使用方式
 

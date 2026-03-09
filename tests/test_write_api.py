@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import csv
+import os
 import tempfile
+import textwrap
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from ainative_todo_service.write_api import WritePlanner
 
@@ -28,6 +31,11 @@ projects_dir = "projects"
 
 [storage]
 format = "csv"
+
+[git]
+auto_commit_on_close_day = false
+auto_push_on_close_day = false
+commit_message = "chore(todo): close day {date}"
 
 [projects.UTC]
 name = "单测客户端"
@@ -98,6 +106,30 @@ TODAY_MARKDOWN = "\n".join(
 )
 
 
+FAKE_GIT_SCRIPT = textwrap.dedent(
+    """\
+    #!/usr/bin/env python3
+    import os
+    import sys
+
+    args = sys.argv[1:]
+    fail_on = os.environ.get("FAKE_GIT_FAIL_ON", "")
+    if args[:2] == ["rev-parse", "--is-inside-work-tree"]:
+        print("true")
+        raise SystemExit(0)
+    if args[:2] == ["diff", "--cached"] and "--quiet" in args:
+        raise SystemExit(1)
+    if args[:2] == ["rev-parse", "HEAD"]:
+        print("deadbeef")
+        raise SystemExit(0)
+    if args and args[0] == fail_on:
+        print(f"fatal: mock {fail_on} failure", file=sys.stderr)
+        raise SystemExit(1)
+    raise SystemExit(0)
+    """
+)
+
+
 class WriteApiTests(unittest.TestCase):
     def setUp(self) -> None:
         self.tempdir = tempfile.TemporaryDirectory()
@@ -112,6 +144,9 @@ class WriteApiTests(unittest.TestCase):
             self.runtime_config_path,
             f'profile = "local"\ndata_repo = "{self.data_repo}"\n',
         )
+        self.fake_git = self.root / "fake_git.py"
+        write_file(self.fake_git, FAKE_GIT_SCRIPT)
+        self.fake_git.chmod(0o755)
         self.planner = WritePlanner(config_path=self.runtime_config_path, code_repo=REPO_ROOT)
 
     def tearDown(self) -> None:
@@ -231,6 +266,36 @@ class WriteApiTests(unittest.TestCase):
         }
         for action, payload in responses.items():
             self.assertNotEqual(payload["status"], "error", action)
+
+    def test_close_day_apply_returns_git_failure_details_without_losing_archive(self) -> None:
+        write_file(
+            self.data_repo / "todo.config.toml",
+            DATA_CONFIG.replace(
+                "auto_commit_on_close_day = false\nauto_push_on_close_day = false",
+                "auto_commit_on_close_day = true\nauto_push_on_close_day = true",
+            ),
+        )
+        planner = WritePlanner(config_path=self.runtime_config_path, code_repo=REPO_ROOT)
+
+        with mock.patch.dict(
+            os.environ,
+            {
+                "AINATIVE_TODO_GIT_BIN": str(self.fake_git),
+                "FAKE_GIT_FAIL_ON": "push",
+            },
+            clear=False,
+        ):
+            payload = planner.plan_write(action="close_day", args={"date": "2026-03-09"})
+            self.assertEqual(payload["status"], "ready_for_confirm")
+            self.assertIn("git commit + push", " ".join(payload["warnings"]))
+
+            apply_payload = planner.apply(operation_id=payload["operation_id"])
+
+        self.assertTrue(apply_payload["ok"])
+        self.assertFalse(apply_payload["git"]["ok"])
+        self.assertIn("git push failed in data repo", apply_payload["git"]["error"])
+        self.assertEqual(apply_payload["warnings"], [apply_payload["git"]["error"]])
+        self.assertTrue((self.data_repo / "daily" / "2026-03" / "W11" / "2026-03-09.md").exists())
 
 
 if __name__ == "__main__":

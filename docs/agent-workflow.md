@@ -154,7 +154,7 @@
 3. 展示归档 summary 和 diff
 4. 用户确认后调 `todo_apply`
 5. apply 后返回已应用文件和归档信息
-6. 若未来工具回包包含 git 结果，只允许解释 data repo 范围内的 commit / push
+6. 若工具回包包含 git 结果，只允许解释 data repo 范围内的 commit / push
 
 ## 其他写动作
 

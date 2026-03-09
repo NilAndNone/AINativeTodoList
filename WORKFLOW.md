@@ -100,7 +100,7 @@
 3. agent 展示归档摘要和 unified diff
 4. 你确认后 agent apply
 5. `today.md` 归档，项目页按现有逻辑同步重建
-6. 若未来配置启用 data repo git 自动化，则只允许作用于 data repo
+6. 若配置启用 data repo git 自动化，则只允许作用于 data repo
 
 ## 通过 agent 可以修改什么
 

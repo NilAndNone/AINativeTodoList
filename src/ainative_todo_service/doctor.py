@@ -22,6 +22,7 @@ def build_report(*, config_path: Path | None, code_repo: Path) -> dict[str, obje
     storage_format = "csv"
     if isinstance(storage, dict):
         storage_format = str(storage.get("format", "csv"))
+    git_config = data_config.git
     return {
         "ok": True,
         "code_repo": str(runtime_config.code_repo),
@@ -33,6 +34,12 @@ def build_report(*, config_path: Path | None, code_repo: Path) -> dict[str, obje
         "storage_format": storage_format,
         "paths": data_config.paths,
         "resolved_paths": data_config.resolved_paths,
+        "data_repo_is_git_repo": (runtime_config.data_repo / ".git").exists(),
+        "git": {
+            "auto_commit_on_close_day": git_config.auto_commit_on_close_day,
+            "auto_push_on_close_day": git_config.auto_push_on_close_day,
+            "commit_message": git_config.commit_message,
+        },
         "projects": sorted(data_config.projects.keys()),
         "supported_read_tools": list(READ_TOOLS),
         "supported_write_tools": list(WRITE_TOOLS),

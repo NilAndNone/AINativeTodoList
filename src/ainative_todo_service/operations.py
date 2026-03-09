@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
+from .config import CloseDayGitConfig, ConfigError, load_data_repo_config
 from .contracts import CommandResult, PreviewResult
+from .git_adapter import run_close_day_git_automation
 from .legacy_adapter import run_legacy_command
 from .preview_runner import run_preview
 
@@ -62,7 +65,23 @@ def preview_close_day(*, code_repo: Path, data_repo: Path, date: str | None = No
 
 
 def apply_close_day(*, code_repo: Path, data_repo: Path, date: str | None = None) -> CommandResult:
-    return _run_real(code_repo=code_repo, data_repo=data_repo, command="close-day", date=date)
+    result = _run_real(code_repo=code_repo, data_repo=data_repo, command="close-day", date=date)
+    try:
+        git_config = load_data_repo_config(data_repo).git
+    except ConfigError:
+        git_config = CloseDayGitConfig()
+    git_result = run_close_day_git_automation(
+        data_repo=data_repo,
+        git_config=git_config,
+        date=date,
+    )
+    return replace(
+        result,
+        metadata={
+            **result.metadata,
+            "git": git_result,
+        },
+    )
 
 
 def preview_generate_projects(*, code_repo: Path, data_repo: Path) -> PreviewResult:

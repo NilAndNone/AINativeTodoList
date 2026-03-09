@@ -16,6 +16,7 @@ class CommandResult:
     returncode: int
     stdout: str
     stderr: str
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @property
     def ok(self) -> bool:

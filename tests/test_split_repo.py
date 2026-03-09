@@ -58,6 +58,8 @@ class SplitRepoTests(unittest.TestCase):
         todo_config = (self.target / "todo.config.toml").read_text(encoding="utf-8")
         self.assertIn('task_store = "data/tasks.csv"', todo_config)
         self.assertIn("[projects.UTC]", todo_config)
+        self.assertIn("auto_commit_on_close_day = false", todo_config)
+        self.assertIn("auto_push_on_close_day = false", todo_config)
 
     def test_split_target_can_be_driven_by_existing_cli_with_root(self) -> None:
         split_result = self.run_split()
@@ -82,6 +84,24 @@ class SplitRepoTests(unittest.TestCase):
         today = (self.target / "today.md").read_text(encoding="utf-8")
         self.assertIn("## 今日必须完成", today)
         self.assertIn("UTC-20260304-01", today)
+
+    def test_split_repo_can_write_runtime_config_and_enable_git_automation(self) -> None:
+        runtime_config = self.root / "runtime-config.toml"
+        result = self.run_split(
+            "--runtime-config-out",
+            str(runtime_config),
+            "--auto-commit-on-close-day",
+            "--auto-push-on-close-day",
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(runtime_config.exists())
+        runtime_text = runtime_config.read_text(encoding="utf-8")
+        self.assertIn(f'data_repo = "{self.target.resolve()}"', runtime_text)
+
+        todo_config = (self.target / "todo.config.toml").read_text(encoding="utf-8")
+        self.assertIn("auto_commit_on_close_day = true", todo_config)
+        self.assertIn("auto_push_on_close_day = true", todo_config)
 
 
 if __name__ == "__main__":

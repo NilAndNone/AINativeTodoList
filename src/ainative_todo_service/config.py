@@ -16,6 +16,7 @@ REQUIRED_PATH_KEYS = (
     "reports_dir",
     "projects_dir",
 )
+DEFAULT_CLOSE_DAY_COMMIT_MESSAGE = "chore(todo): close day {date}"
 
 
 class ConfigError(RuntimeError):
@@ -28,6 +29,13 @@ class RuntimeConfig:
     data_repo: Path
     runtime_config_path: Path
     profile: str = "default"
+
+
+@dataclass(frozen=True)
+class CloseDayGitConfig:
+    auto_commit_on_close_day: bool = False
+    auto_push_on_close_day: bool = False
+    commit_message: str = DEFAULT_CLOSE_DAY_COMMIT_MESSAGE
 
 
 @dataclass(frozen=True)
@@ -66,6 +74,32 @@ class DataRepoConfig:
             normalized[str(key)] = {str(item_key): str(item_value) for item_key, item_value in item.items()}
         return normalized
 
+    @property
+    def git(self) -> CloseDayGitConfig:
+        value = self.raw.get("git", {})
+        if value is None:
+            value = {}
+        if not isinstance(value, dict):
+            raise ConfigError(f"'git' must be a table in {self.path}")
+        commit_message = str(value.get("commit_message", DEFAULT_CLOSE_DAY_COMMIT_MESSAGE)).strip()
+        if not commit_message:
+            raise ConfigError(f"'git.commit_message' cannot be empty in {self.path}")
+        return CloseDayGitConfig(
+            auto_commit_on_close_day=_bool_value(
+                value.get("auto_commit_on_close_day"),
+                default=False,
+                key="git.auto_commit_on_close_day",
+                path=self.path,
+            ),
+            auto_push_on_close_day=_bool_value(
+                value.get("auto_push_on_close_day"),
+                default=False,
+                key="git.auto_push_on_close_day",
+                path=self.path,
+            ),
+            commit_message=commit_message,
+        )
+
     def resolve_path(self, key: str) -> Path:
         relative_path = self.paths.get(key)
         if relative_path is None:
@@ -78,6 +112,14 @@ def default_runtime_config_path() -> Path:
     if value:
         return Path(value).expanduser()
     return DEFAULT_RUNTIME_CONFIG
+
+
+def _bool_value(value: object, *, default: bool, key: str, path: Path) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    raise ConfigError(f"'{key}' must be a boolean in {path}")
 
 
 def _read_toml(path: Path) -> dict[str, object]:
