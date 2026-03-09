@@ -170,6 +170,65 @@ class TodoWorkflowTests(unittest.TestCase):
         self.assertIn("## 杂项（MISC）", weekly)
         self.assertNotIn("已超过 DDL 2026-03-06", weekly)
 
+    def test_close_day_syncs_editable_existing_task_fields(self) -> None:
+        write_file(
+            self.root / "today.md",
+            "\n".join(
+                [
+                    "# 2026-03-04 周三",
+                    "",
+                    "## 今日必须完成",
+                    "",
+                    "| ID | 标题 | 项目 | P | 创建 | DDL | 产出 | 状态 | 备注 |",
+                    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+                    "| UTC-20260304-01 | 推进性能优化 v2 | AGE | P1 | 2026-03-04 | 2026-03-08 | 阶段二分析报告 | blocked | 等依赖接口 |",
+                    "",
+                    "## 今日计划（非必须）",
+                    "",
+                    "| ID | 标题 | 项目 | P | 创建 | DDL | 产出 | 状态 | 备注 |",
+                    "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+                    "| AGE-20260304-01 | 输出阶段性计划文档 | AGE | P1 | 2026-03-04 |  | 阶段性计划文档 | todo | 待开始 |",
+                    "",
+                    "## 临时新增",
+                    "",
+                    "| 标题 | 项目 | P | DDL | 产出 | 状态 | 备注 |",
+                    "| --- | --- | --- | --- | --- | --- | --- |",
+                    "|  |  |  |  |  |  |  |",
+                    "",
+                    "## 实际完成",
+                    "",
+                    "| ID | 标题 | 完成情况 |",
+                    "| --- | --- | --- |",
+                    "|  |  |  |",
+                    "",
+                    "## 未完成 & 原因",
+                    "",
+                    "| ID | 标题 | 原因 | 后续计划 |",
+                    "| --- | --- | --- | --- |",
+                    "|  |  |  |  |",
+                    "",
+                    "## 备注",
+                    "",
+                    "更新已有任务字段。",
+                    "",
+                ],
+            ),
+        )
+
+        result = self.run_cli("close-day", "--date", "2026-03-04")
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+        with (self.root / "data" / "tasks.csv").open(newline="", encoding="utf-8") as handle:
+            rows = list(csv.DictReader(handle))
+        task = next(row for row in rows if row["id"] == "UTC-20260304-01")
+        self.assertEqual(task["title"], "推进性能优化 v2")
+        self.assertEqual(task["project"], "AGE")
+        self.assertEqual(task["priority"], "P1")
+        self.assertEqual(task["due_date"], "2026-03-08")
+        self.assertEqual(task["deliverable"], "阶段二分析报告")
+        self.assertEqual(task["status"], "blocked")
+        self.assertEqual(task["notes"], "等依赖接口")
+
 
 if __name__ == "__main__":
     unittest.main()

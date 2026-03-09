@@ -53,3 +53,18 @@ WRITE_TOOLS = (
     "todo_plan_write",
     "todo_apply",
 )
+
+SUPPORTED_WRITE_ACTIONS = (
+    "start_day",
+    "update_task",
+    "add_task",
+    "mark_done",
+    "mark_blocked",
+    "unblock_task",
+    "change_priority",
+    "change_due_date",
+    "cancel_task",
+    "close_day",
+    "generate_report",
+    "rebuild_projects",
+)

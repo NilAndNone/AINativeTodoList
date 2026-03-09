@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 from .config import ConfigError, load_data_repo_config, load_runtime_config
-from .mcp_tool_contracts import READ_TOOLS
+from .mcp_tool_contracts import READ_TOOLS, SUPPORTED_WRITE_ACTIONS, WRITE_TOOLS
 
 
 def parse_args() -> argparse.Namespace:
@@ -35,6 +35,8 @@ def build_report(*, config_path: Path | None, code_repo: Path) -> dict[str, obje
         "resolved_paths": data_config.resolved_paths,
         "projects": sorted(data_config.projects.keys()),
         "supported_read_tools": list(READ_TOOLS),
+        "supported_write_tools": list(WRITE_TOOLS),
+        "supported_actions": list(SUPPORTED_WRITE_ACTIONS),
         "mcp_server_module": "ainative_todo_service.mcp_server",
     }
 

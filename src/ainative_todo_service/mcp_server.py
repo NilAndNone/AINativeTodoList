@@ -13,6 +13,7 @@ from .read_api import (
     build_today_markdown_payload,
     search_tasks_payload,
 )
+from .write_api import WritePlanner
 
 
 def _result(payload: dict[str, object]) -> CallToolResult:
@@ -25,9 +26,10 @@ def _result(payload: dict[str, object]) -> CallToolResult:
 
 def build_mcp_server(*, config_path: Path | None = None, code_repo: Path | None = None) -> FastMCP:
     resolved_code_repo = (code_repo or Path.cwd()).resolve()
+    planner = WritePlanner(config_path=config_path, code_repo=resolved_code_repo)
     server = FastMCP(
         name="ainative-todo",
-        instructions="Read-only MCP tools for AINative todo workflow. No write actions are exposed in this stage.",
+        instructions="AINative todo MCP tools with read access plus plan/apply write actions. All writes must go through todo_plan_write before todo_apply.",
         log_level="WARNING",
     )
 
@@ -70,6 +72,14 @@ def build_mcp_server(*, config_path: Path | None = None, code_repo: Path | None 
                 code_repo=resolved_code_repo,
             )
         )
+
+    @server.tool(name="todo_plan_write", description="Plan a write action, returning missing fields, ambiguity candidates, or preview diffs that require explicit confirmation.")
+    def todo_plan_write(action: str, args: dict[str, object] | None = None) -> CallToolResult:
+        return _result(planner.plan_write(action=action, args=args))
+
+    @server.tool(name="todo_apply", description="Apply a previously planned write operation after the user has explicitly confirmed it.")
+    def todo_apply(operation_id: str) -> CallToolResult:
+        return _result(planner.apply(operation_id=operation_id))
 
     return server
 

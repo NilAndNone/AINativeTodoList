@@ -90,6 +90,8 @@ class McpServerTests(unittest.TestCase):
                             "todo_get_overview",
                             "todo_get_today_markdown",
                             "todo_search_tasks",
+                            "todo_plan_write",
+                            "todo_apply",
                         },
                     )
 
@@ -98,6 +100,7 @@ class McpServerTests(unittest.TestCase):
                     doctor_payload = doctor_result.structuredContent or json.loads(doctor_result.content[0].text)
                     self.assertTrue(doctor_payload["ok"])
                     self.assertEqual(doctor_payload["storage_format"], "csv")
+                    self.assertIn("update_task", doctor_payload["supported_actions"])
 
                     overview_result = await session.call_tool("todo_get_overview", {"date": "2026-03-09"})
                     self.assertFalse(overview_result.isError)
@@ -119,6 +122,31 @@ class McpServerTests(unittest.TestCase):
                     search_payload = search_result.structuredContent or json.loads(search_result.content[0].text)
                     self.assertEqual(search_payload["total_matches"], 1)
                     self.assertEqual(search_payload["matches"][0]["id"], "UTC-20260305-01")
+
+                    plan_result = await session.call_tool(
+                        "todo_plan_write",
+                        {
+                            "action": "update_task",
+                            "args": {
+                                "task_selector": {"id": "UTC-20260304-01"},
+                                "patch": {"status": "blocked", "notes": "等待接口联调"},
+                            },
+                        },
+                    )
+                    self.assertFalse(plan_result.isError)
+                    plan_payload = plan_result.structuredContent or json.loads(plan_result.content[0].text)
+                    self.assertEqual(plan_payload["status"], "ready_for_confirm")
+                    self.assertIn("data/tasks.csv", plan_payload["files_changed"])
+
+                    apply_result = await session.call_tool(
+                        "todo_apply",
+                        {"operation_id": plan_payload["operation_id"]},
+                    )
+                    self.assertFalse(apply_result.isError)
+                    apply_payload = apply_result.structuredContent or json.loads(apply_result.content[0].text)
+                    self.assertTrue(apply_payload["ok"])
+                    self.assertEqual(apply_payload["action"], "update_task")
+                    self.assertIn("blocked", (self.data_repo / "data" / "tasks.csv").read_text(encoding="utf-8"))
 
         anyio.run(scenario)
 

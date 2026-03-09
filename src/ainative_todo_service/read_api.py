@@ -9,7 +9,7 @@ from typing import Any
 
 from .config import ConfigError, DataRepoConfig, RuntimeConfig, load_data_repo_config, load_runtime_config
 from .doctor import build_report
-from .mcp_tool_contracts import READ_TOOLS
+from .mcp_tool_contracts import READ_TOOLS, SUPPORTED_WRITE_ACTIONS, WRITE_TOOLS
 
 
 TASK_HEADERS = [
@@ -270,5 +270,7 @@ def format_tool_payload(payload: dict[str, object]) -> str:
 def doctor_capabilities() -> dict[str, object]:
     return {
         "supported_read_tools": list(READ_TOOLS),
+        "supported_write_tools": list(WRITE_TOOLS),
+        "supported_actions": list(SUPPORTED_WRITE_ACTIONS),
         "mcp_server_module": "ainative_todo_service.mcp_server",
     }

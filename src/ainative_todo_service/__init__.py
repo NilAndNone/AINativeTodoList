@@ -20,6 +20,7 @@ from .read_api import (
     build_today_markdown_payload,
     search_tasks_payload,
 )
+from .write_api import WritePlanner
 
 
 def build_mcp_server(*args, **kwargs):
@@ -51,4 +52,5 @@ __all__ = [
     "preview_generate_report",
     "preview_generate_today",
     "search_tasks_payload",
+    "WritePlanner",
 ]

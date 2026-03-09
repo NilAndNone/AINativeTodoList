@@ -349,17 +349,19 @@ def compare_immutable_fields(task: dict[str, str], row: dict[str, str]) -> None:
         "标题": "title",
         "项目": "project",
         "P": "priority",
-        "创建": "created_date",
         "DDL": "due_date",
         "产出": "deliverable",
+        "状态": "status",
+        "备注": "notes",
     }
+    created_date = row.get("创建", "")
+    if created_date != task["created_date"]:
+        raise WorkflowError(
+            f"Task {task['id']} changed immutable field '创建' from '{task['created_date']}' to '{created_date}'"
+        )
     for display_name, field_name in field_map.items():
-        row_value = row.get(display_name, "")
-        task_value = task[field_name]
-        if row_value != task_value:
-            raise WorkflowError(
-                f"Task {task['id']} changed immutable field '{display_name}' from '{task_value}' to '{row_value}'"
-            )
+        task[field_name] = row.get(display_name, "").strip()
+    validate_task(task)
 
 
 def resolve_completion_targets(
@@ -401,11 +403,6 @@ def sync_today(root: Path) -> tuple[dt.date, Path]:
             if task is None:
                 raise WorkflowError(f"{section_name} references unknown task id: {task_id}")
             compare_immutable_fields(task, row)
-            status = row["状态"]
-            if status not in VALID_STATUSES:
-                raise WorkflowError(f"Task {task_id} has invalid status: {status}")
-            task["status"] = status
-            task["notes"] = row["备注"]
 
     adhoc_rows = parsed["临时新增"]
     assert isinstance(adhoc_rows, list)
